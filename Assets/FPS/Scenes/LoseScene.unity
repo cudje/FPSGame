@@ -131,6 +131,7 @@ GameObject:
   - component: {fileID: 287730033}
   - component: {fileID: 287730035}
   - component: {fileID: 287730034}
+  - component: {fileID: 287730036}
   m_Layer: 5
   m_Name: Text (TMP)
   m_TagString: Untagged
@@ -177,7 +178,11 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: You LOSE
+  m_text: 'You LOSE
+
+    Survive Time
+
+    00 : 00'
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 75063828274bdb145a55f6dd2f22e8b2, type: 2}
   m_sharedMaterial: {fileID: 21098970014090698, guid: 75063828274bdb145a55f6dd2f22e8b2,
@@ -258,6 +263,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 287730032}
   m_CullTransparentMesh: 0
+--- !u!114 &287730036
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 287730032}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f85fede303a30b94d9c8501fecbfa1a2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PrintLoseTime
 --- !u!1 &904770611
 GameObject:
   m_ObjectHideFlags: 0

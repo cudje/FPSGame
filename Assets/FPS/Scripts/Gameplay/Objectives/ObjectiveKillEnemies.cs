@@ -3,77 +3,93 @@ using UnityEngine;
 
 namespace Unity.FPS.Gameplay
 {
-    public class ObjectiveKillEnemies : Objective
+    // Survive mode: show a running timer instead of kill counter.
+    public class ObjectiveSurvive : Objective
     {
-        [Tooltip("Chose whether you need to kill every enemies or only a minimum amount")]
-        public bool MustKillAllEnemies = true;
+        [Tooltip("0이면 끝없이 생존(클리어 조건 없음). 0보다 크면 해당 시간 생존 시 목표 완료.")]
+        public float SecondsToSurvive = 0f;
 
-        [Tooltip("If MustKillAllEnemies is false, this is the amount of enemy kills required")]
-        public int KillsToCompleteObjective = 5;
+        [Tooltip("타이머를 Time.timeScale의 영향을 받게 할지 여부 (일시정지 시 멈춤 권장)")]
+        public bool UseScaledTime = true;
 
-        [Tooltip("Start sending notification about remaining enemies when this amount of enemies is left")]
-        public int NotificationEnemiesRemainingThreshold = 3;
-
-        int m_KillTotal;
+        float m_Elapsed;
+        bool m_IsRunning = true;
 
         protected override void Start()
         {
             base.Start();
 
-            EventManager.AddListener<EnemyKillEvent>(OnEnemyKilled);
+            EventManager.AddListener<PlayerDeathEvent>(OnPlayerDeath);
 
-            // set a title and description specific for this type of objective, if it hasn't one
             if (string.IsNullOrEmpty(Title))
-                Title = "Eliminate " + (MustKillAllEnemies ? "all the" : KillsToCompleteObjective.ToString()) +
-                        " enemies";
+                Title = SecondsToSurvive > 0f
+                    ? $"Survive for {FormatTime(SecondsToSurvive)}"
+                    : "Survive as long as possible";
 
             if (string.IsNullOrEmpty(Description))
                 Description = GetUpdatedCounterAmount();
         }
 
-        void OnEnemyKilled(EnemyKillEvent evt)
+        void Update()
         {
-            if (IsCompleted)
+            if (IsCompleted || !m_IsRunning)
                 return;
 
-            m_KillTotal++;
+            // 스케일드/언스케일드 시간 선택
+            m_Elapsed += UseScaledTime ? Time.deltaTime : Time.unscaledDeltaTime;
+            SurvivalTimer.Time = m_Elapsed;
 
-            if (MustKillAllEnemies)
-                KillsToCompleteObjective = evt.RemainingEnemyCount + m_KillTotal;
+            // 매 프레임 HUD 타이머 업데이트
+            UpdateObjective(string.Empty, GetUpdatedCounterAmount(), string.Empty);
 
-            int targetRemaining = MustKillAllEnemies ? evt.RemainingEnemyCount : KillsToCompleteObjective - m_KillTotal;
-
-            // update the objective text according to how many enemies remain to kill
-            if (targetRemaining == 0)
+            // 목표 시간이 설정된 경우, 달성 체크
+            if (SecondsToSurvive > 0f && m_Elapsed >= SecondsToSurvive)
             {
-                CompleteObjective(string.Empty, GetUpdatedCounterAmount(), "Objective complete : " + Title);
+                m_IsRunning = false;
+                CompleteObjective(string.Empty, GetUpdatedCounterAmount(),
+                    "Objective complete : " + Title);
             }
-            else if (targetRemaining == 1)
-            {
-                string notificationText = NotificationEnemiesRemainingThreshold >= targetRemaining
-                    ? "One enemy left"
-                    : string.Empty;
-                UpdateObjective(string.Empty, GetUpdatedCounterAmount(), notificationText);
-            }
+        }
+
+        void OnPlayerDeath(PlayerDeathEvent evt)
+        {
+            if (IsCompleted) return;
+
+            m_IsRunning = false;
+
+            // 무한 생존 모드: 최종 기록만 남기고 종료 알림
+            // 제한 시간 생존 모드: 죽으면 실패로 처리하고 종료 알림 (FailObjective가 없다면 알림만)
+#if UNITY_FPS_FAILOBJECTIVE_EXISTS
+            if (SecondsToSurvive > 0f)
+                FailObjective("You died", GetUpdatedCounterAmount(), "Objective failed : " + Title);
             else
-            {
-                // create a notification text if needed, if it stays empty, the notification will not be created
-                string notificationText = NotificationEnemiesRemainingThreshold >= targetRemaining
-                    ? targetRemaining + " enemies to kill left"
-                    : string.Empty;
-
-                UpdateObjective(string.Empty, GetUpdatedCounterAmount(), notificationText);
-            }
+                UpdateObjective(string.Empty, $"Final time  {FormatTime(m_Elapsed)}", "Run ended");
+#else
+            string note = SecondsToSurvive > 0f ? "Objective failed : " + Title : "Run ended";
+            UpdateObjective(string.Empty, $"Final time  {FormatTime(m_Elapsed)}", note);
+#endif
         }
 
         string GetUpdatedCounterAmount()
         {
-            return m_KillTotal + " / " + KillsToCompleteObjective;
+            // HUD에 표시할 본문: "mm:ss.mmm / (목표시간)" 또는 "mm:ss.mmm"
+            if (SecondsToSurvive > 0f)
+                return $"{FormatTime(m_Elapsed)} / {FormatTime(SecondsToSurvive)}";
+            return $"{FormatTime(m_Elapsed)}";
+        }
+
+        static string FormatTime(float seconds)
+        {
+            if (seconds < 0f) seconds = 0f;
+            int mins = Mathf.FloorToInt(seconds / 60f);
+            int secs = Mathf.FloorToInt(seconds % 60f);
+            int millis = Mathf.FloorToInt((seconds - Mathf.Floor(seconds)) * 1000f);
+            return $"{mins:00}:{secs:00}.{millis:000}";
         }
 
         void OnDestroy()
         {
-            EventManager.RemoveListener<EnemyKillEvent>(OnEnemyKilled);
+            EventManager.RemoveListener<PlayerDeathEvent>(OnPlayerDeath);
         }
     }
 }
